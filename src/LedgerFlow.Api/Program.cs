@@ -24,18 +24,10 @@ builder.Host.UseSerilog((context, configuration) => configuration
     .Enrich.FromLogContext()
     .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture));
 
-var connectionString = builder.Configuration.GetConnectionString("LedgerFlow");
-if (string.IsNullOrWhiteSpace(connectionString))
-    throw new InvalidOperationException("ConnectionStrings:LedgerFlow is required.");
-var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
-    ?? throw new InvalidOperationException("JWT configuration is required.");
-if (Encoding.UTF8.GetByteCount(jwt.SigningKey) < 32 ||
-    (!builder.Environment.IsDevelopment() && jwt.SigningKey.StartsWith("CONFIGURE_", StringComparison.Ordinal)))
-    throw new InvalidOperationException("Jwt:SigningKey must contain at least 32 bytes.");
-
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddInfrastructure(() => builder.Configuration.GetConnectionString("LedgerFlow")
+    ?? throw new InvalidOperationException("ConnectionStrings:LedgerFlow is required."));
 builder.Services.AddSingleton<ITokenService, JwtTokenService>();
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 {
@@ -66,6 +58,8 @@ builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
+    var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+        ?? throw new InvalidOperationException("JWT configuration is required.");
     options.MapInboundClaims = false;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -135,6 +129,15 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+var connectionString = app.Configuration.GetConnectionString("LedgerFlow");
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException("ConnectionStrings:LedgerFlow is required.");
+var jwt = app.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+    ?? throw new InvalidOperationException("JWT configuration is required.");
+if (Encoding.UTF8.GetByteCount(jwt.SigningKey) < 32 ||
+    (!app.Environment.IsDevelopment() && jwt.SigningKey.StartsWith("CONFIGURE_", StringComparison.Ordinal)))
+    throw new InvalidOperationException("Jwt:SigningKey must contain at least 32 bytes.");
 
 if (app.Configuration.GetValue("Database:RunMigrations", true))
 {
