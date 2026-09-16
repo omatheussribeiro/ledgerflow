@@ -9,9 +9,13 @@ namespace LedgerFlow.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        Func<string> connectionStringFactory)
     {
-        services.AddSingleton(new LedgerFlowDbContext(connectionString));
+        ArgumentNullException.ThrowIfNull(connectionStringFactory);
+
+        services.AddSingleton(_ => new LedgerFlowDbContext(connectionStringFactory()));
         services.AddSingleton<DatabaseInitializer>();
         services.AddScoped<IFinancialRepository, FinancialRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
