@@ -1,0 +1,23 @@
+@LedgerFlow.Api_HostAddress = http://localhost:5080
+@AccessToken = paste-access-token-here
+
+GET {{LedgerFlow.Api_HostAddress}}/health
+Accept: application/json
+
+###
+
+POST {{LedgerFlow.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@ledgerflow.dev",
+  "password": "DemoPass123!"
+}
+
+###
+
+GET {{LedgerFlow.Api_HostAddress}}/api/dashboard
+Authorization: Bearer {{AccessToken}}
+Accept: application/json
+
+###

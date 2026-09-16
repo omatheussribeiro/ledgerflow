@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/node_modules
+**/dist
+.git
+.github
+.vs
+.idea
+TestResults
+docs/GITHUB-ACTIONS-SETUP-PRIVATE.md
+.env
+*.log

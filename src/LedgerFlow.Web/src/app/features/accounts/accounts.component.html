@@ -1,0 +1,65 @@
+<header class="page-heading">
+  <div>
+    <p class="kicker">ACCOUNTS</p>
+    <h1>Every balance, in context.</h1>
+    <p>Keep cash, checking, savings and investments in one view.</p>
+  </div>
+  <button class="button primary" (click)="showForm.set(!showForm())">
+    + Add account
+  </button>
+</header>
+
+@if (showForm()) {
+  <form class="panel form-grid" [formGroup]="form" (ngSubmit)="create()">
+    <label>
+      Account name
+      <input formControlName="name" placeholder="e.g. Main checking" />
+    </label>
+    <label>
+      Account type
+      <select formControlName="type">
+        <option [ngValue]="1">Checking</option>
+        <option [ngValue]="2">Savings</option>
+        <option [ngValue]="3">Cash</option>
+        <option [ngValue]="4">Investment</option>
+      </select>
+    </label>
+    <label>
+      Initial balance
+      <input formControlName="initialBalance" type="number" step="0.01" />
+    </label>
+    <div class="actions">
+      <button class="button" type="button" (click)="showForm.set(false)">Cancel</button>
+      <button class="button primary" [disabled]="form.invalid || saving()">
+        {{ saving() ? 'Saving…' : 'Save account' }}
+      </button>
+    </div>
+  </form>
+}
+
+@if (error()) {
+  <p class="notice error">{{ error() }}</p>
+}
+
+<section class="account-grid">
+  @for (account of accounts(); track account.id) {
+    <article class="account-card">
+      <div class="card-top">
+        <span class="account-icon">{{ icon(account.type) }}</span>
+        <span class="status">Active</span>
+      </div>
+      <p>{{ typeName(account.type) }}</p>
+      <h2>{{ account.name }}</h2>
+      <strong>{{ account.balance | currency: 'BRL' }}</strong>
+      <small>Opening balance {{ account.initialBalance | currency: 'BRL' }}</small>
+      <div class="card-line"></div>
+    </article>
+  } @empty {
+    @if (!loading()) {
+      <div class="empty panel">
+        <h2>No accounts yet.</h2>
+        <p>Add your first account to start tracking balances.</p>
+      </div>
+    }
+  }
+</section>

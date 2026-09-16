@@ -1,0 +1,49 @@
+<header class="page-heading">
+  <div>
+    <p class="kicker">REPORTS</p>
+    <h1>Patterns worth noticing.</h1>
+    <p>Turn transactions into useful signals for the next decision.</p>
+  </div>
+</header>
+
+@if (data(); as report) {
+  <section class="report-grid">
+    <article class="hero">
+      <p>MONTHLY SAVINGS RATE</p>
+      <strong>{{ savingsRate() | number: '1.0-1' }}%</strong>
+      <span>
+        Result of {{ report.monthlyResult | currency: 'BRL' }} from
+        {{ report.monthlyIncome | currency: 'BRL' }} in income.
+      </span>
+      <div class="progress"><i [style.width.%]="boundedSavingsRate()"></i></div>
+    </article>
+    <article class="panel">
+      <p>AVERAGE MONTHLY INCOME</p>
+      <strong>{{ averageIncome() | currency: 'BRL' }}</strong>
+      <span>Across the six-month window</span>
+    </article>
+    <article class="panel">
+      <p>AVERAGE MONTHLY EXPENSE</p>
+      <strong>{{ averageExpense() | currency: 'BRL' }}</strong>
+      <span>Across the six-month window</span>
+    </article>
+  </section>
+
+  <article class="panel breakdown">
+    <h2>Expense concentration</h2>
+    <p class="muted">Understand which categories have the greatest influence this month.</p>
+    @for (item of report.expensesByCategory; track item.categoryId) {
+      <div class="row">
+        <span><i [style.background]="item.color"></i>{{ item.name }}</span>
+        <div class="track">
+          <i [style.width.%]="categoryPercent(item.total)" [style.background]="item.color"></i>
+        </div>
+        <strong>{{ item.total | currency: 'BRL' }}</strong>
+      </div>
+    } @empty {
+      <p class="muted empty">There is not enough expense data for this report yet.</p>
+    }
+  </article>
+} @else {
+  <div class="loading">Preparing your reports…</div>
+}

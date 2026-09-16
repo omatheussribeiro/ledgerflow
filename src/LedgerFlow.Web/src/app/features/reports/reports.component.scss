@@ -1,0 +1,161 @@
+.page-heading {
+  margin-bottom: 32px;
+}
+
+.page-heading h1 {
+  font: 500 clamp(34px, 4vw, 52px) / 1 var(--font-display);
+  margin: 8px 0 10px;
+  letter-spacing: -0.035em;
+}
+
+.page-heading p:not(.kicker),
+.muted {
+  color: var(--muted);
+}
+
+.kicker,
+.hero p,
+.panel > p:first-child {
+  color: var(--accent-dark);
+  letter-spacing: 0.16em;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.hero,
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px;
+  background: white;
+  box-shadow: var(--shadow-soft);
+}
+
+.hero {
+  background: #08241e;
+  color: white;
+  border-color: #08241e;
+}
+
+.hero strong,
+.panel strong {
+  display: block;
+  font: 500 38px / 1 var(--font-display);
+  margin: 20px 0 12px;
+}
+
+.hero span,
+.panel span {
+  color: #91aaa4;
+  font-size: 12px;
+}
+
+.panel > span {
+  color: var(--muted);
+}
+
+.progress {
+  height: 7px;
+  background: #ffffff17;
+  border-radius: 10px;
+  margin-top: 25px;
+  overflow: hidden;
+}
+
+.progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 10px;
+}
+
+.breakdown {
+  margin-top: 0;
+}
+
+.breakdown h2 {
+  font: 600 23px / 1 var(--font-display);
+  margin: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 180px 1fr 120px;
+  align-items: center;
+  gap: 20px;
+  padding: 17px 0;
+  border-bottom: 1px solid #edf2f0;
+  font-size: 12px;
+}
+
+.row > span {
+  color: var(--ink);
+}
+
+.row span i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  margin-right: 9px;
+}
+
+.row > strong {
+  text-align: right;
+  font: 600 13px / 1 sans-serif;
+  margin: 0;
+}
+
+.track {
+  height: 6px;
+  background: #eff3f2;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.track i {
+  display: block;
+  height: 100%;
+  border-radius: 10px;
+}
+
+.empty,
+.loading {
+  text-align: center;
+  padding: 70px;
+}
+
+@media (max-width: 900px) {
+  .report-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hero {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .report-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    grid-column: auto;
+  }
+
+  .row {
+    grid-template-columns: 1fr 80px;
+  }
+
+  .track {
+    display: none;
+  }
+}

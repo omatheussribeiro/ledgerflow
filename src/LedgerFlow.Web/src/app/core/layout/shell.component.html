@@ -1,0 +1,46 @@
+<div class="app-shell" [class.nav-open]="navOpen()">
+  <aside class="sidebar">
+    <a class="brand" routerLink="/dashboard" (click)="navOpen.set(false)">
+      <span class="brand-mark">LF</span>
+      <span>LedgerFlow</span>
+    </a>
+
+    <nav aria-label="Main navigation">
+      @for (item of navItems; track item.path) {
+        <a
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          (click)="navOpen.set(false)"
+        >
+          <span class="nav-icon">{{ item.icon }}</span>
+          {{ item.label }}
+        </a>
+      }
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">{{ initials() }}</div>
+      <div>
+        <strong>{{ auth.user()?.name }}</strong>
+        <small>{{ auth.user()?.email }}</small>
+      </div>
+      <button class="icon-button" title="Sign out" (click)="signOut()">↗</button>
+    </div>
+  </aside>
+
+  <button class="backdrop" aria-label="Close menu" (click)="navOpen.set(false)"></button>
+
+  <main>
+    <header class="topbar">
+      <button class="menu-button" aria-label="Open menu" (click)="navOpen.set(!navOpen())">
+        ☰
+      </button>
+      <div>
+        <span class="eyebrow">Financial workspace</span>
+        <strong>Good to see you, {{ firstName() }}</strong>
+      </div>
+      <div class="live-pill"><span></span> Live overview</div>
+    </header>
+    <div class="page"><router-outlet /></div>
+  </main>
+</div>

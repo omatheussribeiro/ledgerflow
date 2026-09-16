@@ -1,0 +1,78 @@
+<main class="auth-page">
+  <section class="auth-story">
+    <a class="brand" href="/"><span>LF</span> LedgerFlow</a>
+    <div class="story-copy">
+      <p class="kicker">FINANCIAL CLARITY, BY DESIGN</p>
+      <h1>See the story<br />behind every number.</h1>
+      <p>
+        One calm workspace for the accounts, decisions and momentum that shape your financial
+        life.
+      </p>
+      <div class="story-stats">
+        <strong>100%</strong>
+        <span>SQL you can inspect.<br />Decisions you can explain.</span>
+      </div>
+    </div>
+    <small>.NET 10 · Angular 22 · Dapper · SQL Server</small>
+  </section>
+
+  <section class="auth-form-wrap">
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <p class="kicker">{{ registerMode() ? 'CREATE YOUR WORKSPACE' : 'WELCOME BACK' }}</p>
+      <h2>{{ registerMode() ? 'Start with clarity.' : 'Continue your flow.' }}</h2>
+      <p class="intro">
+        {{
+          registerMode()
+            ? 'A secure account takes less than a minute.'
+            : 'Enter your details to access your financial workspace.'
+        }}
+      </p>
+
+      @if (registerMode()) {
+        <label>
+          Full name
+          <input formControlName="name" autocomplete="name" placeholder="Your name" />
+        </label>
+      }
+
+      <label>
+        Email address
+        <input
+          formControlName="email"
+          type="email"
+          autocomplete="email"
+          placeholder="you@example.com"
+        />
+      </label>
+      <label>
+        Password
+        <input
+          formControlName="password"
+          type="password"
+          [autocomplete]="registerMode() ? 'new-password' : 'current-password'"
+          placeholder="At least 10 characters"
+        />
+      </label>
+
+      @if (error()) {
+        <div class="error" role="alert">{{ error() }}</div>
+      }
+
+      <button class="submit" type="submit" [disabled]="form.invalid || busy()">
+        {{ busy() ? 'Please wait…' : registerMode() ? 'Create account' : 'Sign in' }}
+        <span>→</span>
+      </button>
+      <button class="mode" type="button" (click)="toggleMode()">
+        {{
+          registerMode()
+            ? 'Already have an account? Sign in'
+            : 'New to LedgerFlow? Create an account'
+        }}
+      </button>
+
+      @if (!registerMode()) {
+        <p class="demo">Demo: demo&#64;ledgerflow.dev / DemoPass123!</p>
+      }
+    </form>
+  </section>
+</main>

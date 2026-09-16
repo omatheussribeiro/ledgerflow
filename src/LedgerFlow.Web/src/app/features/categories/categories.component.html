@@ -1,0 +1,60 @@
+<header class="page-heading">
+  <div>
+    <p class="kicker">CATEGORIES</p>
+    <h1>Give every movement meaning.</h1>
+    <p>A compact taxonomy keeps reports useful and decisions fast.</p>
+  </div>
+  <button class="button primary" (click)="showForm.set(!showForm())">
+    + New category
+  </button>
+</header>
+
+@if (showForm()) {
+  <form class="panel form-grid" [formGroup]="form" (ngSubmit)="create()">
+    <label>Name<input formControlName="name" placeholder="e.g. Education" /></label>
+    <label>
+      Flow
+      <select formControlName="type">
+        <option [ngValue]="2">Expense</option>
+        <option [ngValue]="1">Income</option>
+      </select>
+    </label>
+    <label>Color<input class="color" formControlName="color" type="color" /></label>
+    <div class="actions">
+      <button class="button" type="button" (click)="showForm.set(false)">Cancel</button>
+      <button class="button primary" [disabled]="form.invalid || saving()">Save</button>
+    </div>
+  </form>
+}
+
+@if (error()) {
+  <p class="notice">{{ error() }}</p>
+}
+
+<section class="category-groups">
+  <article class="panel">
+    <div class="section-title"><h2>Expense categories</h2><span>{{ expenses().length }}</span></div>
+    @for (item of expenses(); track item.id) {
+      <div class="category">
+        <i [style.background]="item.color"></i>
+        <strong>{{ item.name }}</strong>
+        <small>Expense</small>
+      </div>
+    } @empty {
+      <p class="muted">No expense categories yet.</p>
+    }
+  </article>
+
+  <article class="panel">
+    <div class="section-title"><h2>Income categories</h2><span>{{ income().length }}</span></div>
+    @for (item of income(); track item.id) {
+      <div class="category">
+        <i [style.background]="item.color"></i>
+        <strong>{{ item.name }}</strong>
+        <small>Income</small>
+      </div>
+    } @empty {
+      <p class="muted">No income categories yet.</p>
+    }
+  </article>
+</section>

@@ -1,0 +1,118 @@
+<header class="page-heading">
+  <div>
+    <p class="kicker">LEDGER</p>
+    <h1>Transactions, without the noise.</h1>
+    <p>Search, filter and record every movement from one dependable ledger.</p>
+  </div>
+  <button class="button primary" (click)="showForm.set(!showForm())">
+    + New transaction
+  </button>
+</header>
+
+@if (showForm()) {
+  <form class="panel transaction-form" [formGroup]="form" (ngSubmit)="create()">
+    <div class="form-heading">
+      <h2>Record a movement</h2>
+      <button type="button" class="close" (click)="showForm.set(false)">×</button>
+    </div>
+    <label class="wide">
+      Description
+      <input formControlName="description" placeholder="What was this for?" />
+    </label>
+    <label>
+      Flow
+      <select formControlName="type">
+        <option [ngValue]="2">Expense</option>
+        <option [ngValue]="1">Income</option>
+      </select>
+    </label>
+    <label>Amount<input formControlName="amount" type="number" min="0.01" step="0.01" /></label>
+    <label>
+      Account
+      <select formControlName="accountId">
+        <option value="">Select account</option>
+        @for (item of accounts(); track item.id) {
+          <option [value]="item.id">{{ item.name }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      Category
+      <select formControlName="categoryId">
+        <option value="">Select category</option>
+        @for (item of availableCategories(); track item.id) {
+          <option [value]="item.id">{{ item.name }}</option>
+        }
+      </select>
+    </label>
+    <label>Date<input formControlName="occurredOn" type="date" /></label>
+    <label>
+      Status
+      <select formControlName="status">
+        <option [ngValue]="2">Cleared</option>
+        <option [ngValue]="1">Pending</option>
+      </select>
+    </label>
+    <label class="wide">Notes<input formControlName="notes" placeholder="Optional details" /></label>
+    <div class="form-actions wide">
+      <button class="button" type="button" (click)="showForm.set(false)">Cancel</button>
+      <button class="button primary" [disabled]="form.invalid || saving()">
+        {{ saving() ? 'Recording…' : 'Record transaction' }}
+      </button>
+    </div>
+  </form>
+}
+
+<form class="filters" [formGroup]="filters" (ngSubmit)="load()">
+  <label class="search">Search<input formControlName="search" placeholder="Description…" /></label>
+  <label>From<input formControlName="from" type="date" /></label>
+  <label>To<input formControlName="to" type="date" /></label>
+  <label>
+    Flow
+    <select formControlName="type">
+      <option value="">All flows</option>
+      <option value="1">Income</option>
+      <option value="2">Expense</option>
+    </select>
+  </label>
+  <button class="button">Apply filters</button>
+</form>
+
+@if (error()) {
+  <p class="notice">{{ error() }}</p>
+}
+
+<section class="panel ledger">
+  <div class="ledger-head">
+    <span>Transaction</span><span>Account</span><span>Date</span><span>Status</span><span>Amount</span>
+  </div>
+  @for (item of result().items; track item.id) {
+    <div class="ledger-row">
+      <div class="description">
+        <i [style.background]="item.categoryColor">{{ item.type === 1 ? '↙' : '↗' }}</i>
+        <div><strong>{{ item.description }}</strong><small>{{ item.categoryName }}</small></div>
+      </div>
+      <span>{{ item.accountName }}</span>
+      <span>{{ item.occurredOn | date: 'MMM d, y' }}</span>
+      <span><em [class.pending]="item.status === 1">{{ item.status === 1 ? 'Pending' : 'Cleared' }}</em></span>
+      <b [class.income]="item.type === 1" [class.expense]="item.type === 2">
+        {{ item.type === 1 ? '+' : '−' }}{{ item.amount | currency: 'BRL' }}
+      </b>
+    </div>
+  } @empty {
+    @if (!loading()) {
+      <div class="empty">
+        <h2>No transactions found.</h2>
+        <p>Adjust the filters or record your first movement.</p>
+      </div>
+    }
+  }
+  <footer>
+    <span>{{ result().totalCount }} transactions</span>
+    <div>
+      <button class="page-button" [disabled]="result().page <= 1" (click)="goTo(result().page - 1)">←</button>
+      <span>Page {{ result().page }} of {{ result().totalPages || 1 }}</span>
+      <button class="page-button" [disabled]="result().page >= result().totalPages" (click)="goTo(result().page + 1)">→</button>
+    </div>
+  </footer>
+</section>

@@ -1,0 +1,107 @@
+<header class="page-heading">
+  <div>
+    <p class="kicker">OVERVIEW</p>
+    <h1>Your financial pulse.</h1>
+    <p>One view of where you stand and where your money is moving.</p>
+  </div>
+  <a class="button primary" routerLink="/transactions">+ New transaction</a>
+</header>
+
+@if (loading()) {
+  <div class="loading">Building your overview…</div>
+} @else if (error()) {
+  <div class="empty">
+    <h2>We couldn't load your dashboard.</h2>
+    <p>{{ error() }}</p>
+    <button class="button" (click)="load()">Try again</button>
+  </div>
+} @else if (data(); as dashboard) {
+  <section class="metric-grid">
+    <article class="metric balance">
+      <span>Total balance</span>
+      <strong>{{ dashboard.totalBalance | currency: 'BRL' }}</strong>
+      <small>Across all active accounts</small>
+    </article>
+    <article class="metric">
+      <span>Income this month</span>
+      <strong class="positive">{{ dashboard.monthlyIncome | currency: 'BRL' }}</strong>
+      <small>Cleared transactions</small>
+    </article>
+    <article class="metric">
+      <span>Expenses this month</span>
+      <strong class="negative">{{ dashboard.monthlyExpense | currency: 'BRL' }}</strong>
+      <small>{{ expenseShare() | number: '1.0-0' }}% of monthly income</small>
+    </article>
+    <article class="metric">
+      <span>Monthly result</span>
+      <strong [class.negative]="dashboard.monthlyResult < 0">
+        {{ dashboard.monthlyResult | currency: 'BRL' }}
+      </strong>
+      <small>Income minus expenses</small>
+    </article>
+  </section>
+
+  <section class="dashboard-grid">
+    <article class="panel evolution">
+      <div class="panel-title">
+        <div><span>Cash flow</span><h2>Six-month evolution</h2></div>
+        <div class="legend"><i class="income"></i> Income <i class="expense"></i> Expense</div>
+      </div>
+      <div class="chart">
+        @for (point of dashboard.evolution; track point.year + '-' + point.month) {
+          <div
+            class="bar-group"
+            [title]="(point.income | currency: 'BRL') + ' / ' + (point.expense | currency: 'BRL')"
+          >
+            <div class="bars">
+              <i class="income" [style.height.%]="barHeight(point.income)"></i>
+              <i class="expense" [style.height.%]="barHeight(point.expense)"></i>
+            </div>
+            <small>{{ monthName(point.month) }}</small>
+          </div>
+        }
+      </div>
+    </article>
+
+    <article class="panel categories">
+      <div class="panel-title"><div><span>Spending</span><h2>By category</h2></div></div>
+      @if (dashboard.expensesByCategory.length) {
+        @for (category of dashboard.expensesByCategory; track category.categoryId) {
+          <div class="category-row">
+            <i [style.background]="category.color"></i>
+            <div>
+              <strong>{{ category.name }}</strong>
+              <span>{{ category.total | currency: 'BRL' }}</span>
+            </div>
+            <small>{{ categoryPercent(category.total) | number: '1.0-0' }}%</small>
+          </div>
+        }
+      } @else {
+        <p class="muted">No expenses in this period.</p>
+      }
+    </article>
+
+    <article class="panel latest">
+      <div class="panel-title">
+        <div><span>Activity</span><h2>Latest transactions</h2></div>
+        <a routerLink="/transactions">View all →</a>
+      </div>
+      <div class="transaction-list">
+        @for (item of dashboard.latestTransactions; track item.id) {
+          <div class="transaction">
+            <i [style.background]="item.categoryColor">{{ item.type === 1 ? '↙' : '↗' }}</i>
+            <div>
+              <strong>{{ item.description }}</strong>
+              <span>{{ item.categoryName }} · {{ item.occurredOn | date: 'MMM d' }}</span>
+            </div>
+            <b [class.positive]="item.type === 1" [class.negative]="item.type === 2">
+              {{ item.type === 1 ? '+' : '−' }}{{ item.amount | currency: 'BRL' }}
+            </b>
+          </div>
+        } @empty {
+          <p class="muted">Your latest transactions will appear here.</p>
+        }
+      </div>
+    </article>
+  </section>
+}

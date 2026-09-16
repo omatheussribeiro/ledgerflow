@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore LedgerFlow.slnx
+      - name: Build with warnings as errors
+        run: dotnet build LedgerFlow.slnx -c Release --no-restore -p:CI=true
+      - name: Unit tests
+        run: dotnet test tests/LedgerFlow.UnitTests -c Release --no-build --logger "trx;LogFileName=unit.trx"
+      - name: Architecture tests
+        run: dotnet test tests/LedgerFlow.ArchitectureTests -c Release --no-build --logger "trx;LogFileName=architecture.trx"
+      - name: Integration tests with containerized SQL Server
+        run: dotnet test tests/LedgerFlow.IntegrationTests -c Release --no-build --logger "trx;LogFileName=integration.trx"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: dotnet-test-results
+          path: "**/TestResults/*.trx"
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/LedgerFlow.Web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/LedgerFlow.Web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --watch=false
+      - run: npm run build
