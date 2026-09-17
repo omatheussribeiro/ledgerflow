@@ -8,6 +8,7 @@ using LedgerFlow.Domain.Financial;
 using LedgerFlow.Infrastructure.Persistence.Context;
 using LedgerFlow.Infrastructure.Persistence.Context.Configurations;
 using LedgerFlow.Infrastructure.Persistence.Repositories.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace LedgerFlow.Infrastructure.Persistence.Repositories;
 
@@ -22,8 +23,8 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
                    a.InitialBalance + COALESCE(SUM(CASE WHEN t.Status = 2 AND t.Type = 1 THEN t.Amount WHEN t.Status = 2 AND t.Type = 2 THEN -t.Amount ELSE 0 END), 0) AS Balance,
                    a.IsActive
             FROM {AccountTableConfiguration.TableName} a
-            LEFT JOIN {TransactionTableConfiguration.TableName} t ON t.AccountId = a.Id
-            WHERE a.UserId = @UserId
+            LEFT JOIN {TransactionTableConfiguration.TableName} t ON t.AccountId = a.Id AND t.DeletedAt IS NULL
+            WHERE a.UserId = @UserId AND a.IsActive = 1 AND a.DeletedAt IS NULL
             GROUP BY a.Id, a.Name, a.Type, a.InitialBalance, a.IsActive
             ORDER BY a.Name;
             """;
@@ -43,8 +44,8 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
                    a.InitialBalance + COALESCE(SUM(CASE WHEN t.Status = 2 AND t.Type = 1 THEN t.Amount WHEN t.Status = 2 AND t.Type = 2 THEN -t.Amount ELSE 0 END), 0) AS Balance,
                    a.IsActive
             FROM {AccountTableConfiguration.TableName} a
-            LEFT JOIN {TransactionTableConfiguration.TableName} t ON t.AccountId = a.Id
-            WHERE a.UserId = @UserId AND a.Id = @AccountId
+            LEFT JOIN {TransactionTableConfiguration.TableName} t ON t.AccountId = a.Id AND t.DeletedAt IS NULL
+            WHERE a.UserId = @UserId AND a.Id = @AccountId AND a.IsActive = 1 AND a.DeletedAt IS NULL
             GROUP BY a.Id, a.Name, a.Type, a.InitialBalance, a.IsActive;
             """;
         await using var connection = await context.OpenConnectionAsync(cancellationToken);
@@ -58,20 +59,46 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
 
     public async Task AddAccountAsync(Account account, CancellationToken cancellationToken)
     {
-        var sql = $"""
-            INSERT INTO {AccountTableConfiguration.TableName} (Id, UserId, Name, Type, InitialBalance, IsActive, CreatedAt)
-            VALUES (@Id, @UserId, @Name, @Type, @InitialBalance, @IsActive, @CreatedAt);
-            """;
-        await using var connection = await context.OpenConnectionAsync(cancellationToken);
-        await connection.ExecuteAsync(
-            new CommandDefinition(sql, account, cancellationToken: cancellationToken));
+        await context.Accounts.AddAsync(account, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<AccountResponseDto?> UpdateAccountAsync(
+        Guid userId,
+        Guid accountId,
+        UpdateAccountRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var account = await context.Accounts.SingleOrDefaultAsync(
+            item => item.Id == accountId && item.UserId == userId,
+            cancellationToken);
+        if (account is null) return null;
+
+        account.Update(request.Name, request.Type, request.InitialBalance);
+        await context.SaveChangesAsync(cancellationToken);
+        return await GetAccountAsync(userId, accountId, cancellationToken);
+    }
+
+    public async Task<bool> DeleteAccountAsync(
+        Guid userId,
+        Guid accountId,
+        CancellationToken cancellationToken)
+    {
+        var account = await context.Accounts.SingleOrDefaultAsync(
+            item => item.Id == accountId && item.UserId == userId,
+            cancellationToken);
+        if (account is null) return false;
+
+        account.Delete(DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<IReadOnlyList<CategoryResponseDto>> GetCategoriesAsync(
         Guid userId,
         CancellationToken cancellationToken)
     {
-        var sql = $"SELECT {CategoryTableConfiguration.ReadProjection} FROM {CategoryTableConfiguration.TableName} c WHERE c.UserId = @UserId ORDER BY c.Type, c.Name;";
+        var sql = $"SELECT {CategoryTableConfiguration.ReadProjection} FROM {CategoryTableConfiguration.TableName} c WHERE c.UserId = @UserId AND c.DeletedAt IS NULL ORDER BY c.Type, c.Name;";
         await using var connection = await context.OpenConnectionAsync(cancellationToken);
         var rows = await connection.QueryAsync<CategoryReadModel>(
             new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
@@ -80,13 +107,39 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
 
     public async Task AddCategoryAsync(Category category, CancellationToken cancellationToken)
     {
-        var sql = $"""
-            INSERT INTO {CategoryTableConfiguration.TableName} (Id, UserId, Name, Type, Color, CreatedAt)
-            VALUES (@Id, @UserId, @Name, @Type, @Color, @CreatedAt);
-            """;
-        await using var connection = await context.OpenConnectionAsync(cancellationToken);
-        await connection.ExecuteAsync(
-            new CommandDefinition(sql, category, cancellationToken: cancellationToken));
+        await context.Categories.AddAsync(category, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<CategoryResponseDto?> UpdateCategoryAsync(
+        Guid userId,
+        Guid categoryId,
+        UpdateCategoryRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var category = await context.Categories.SingleOrDefaultAsync(
+            item => item.Id == categoryId && item.UserId == userId,
+            cancellationToken);
+        if (category is null) return null;
+
+        category.Update(request.Name, request.Type, request.Color);
+        await context.SaveChangesAsync(cancellationToken);
+        return new CategoryResponseDto(category.Id, category.Name, category.Type, category.Color);
+    }
+
+    public async Task<bool> DeleteCategoryAsync(
+        Guid userId,
+        Guid categoryId,
+        CancellationToken cancellationToken)
+    {
+        var category = await context.Categories.SingleOrDefaultAsync(
+            item => item.Id == categoryId && item.UserId == userId,
+            cancellationToken);
+        if (category is null) return false;
+
+        category.Delete(DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<bool> OwnsAccountAndCategoryAsync(
@@ -97,8 +150,8 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
         CancellationToken cancellationToken)
     {
         var sql = $"""
-            SELECT CASE WHEN EXISTS (SELECT 1 FROM {AccountTableConfiguration.TableName} WHERE Id = @AccountId AND UserId = @UserId AND IsActive = 1)
-                         AND EXISTS (SELECT 1 FROM {CategoryTableConfiguration.TableName} WHERE Id = @CategoryId AND UserId = @UserId AND Type = @Type)
+            SELECT CASE WHEN EXISTS (SELECT 1 FROM {AccountTableConfiguration.TableName} WHERE Id = @AccountId AND UserId = @UserId AND IsActive = 1 AND DeletedAt IS NULL)
+                         AND EXISTS (SELECT 1 FROM {CategoryTableConfiguration.TableName} WHERE Id = @CategoryId AND UserId = @UserId AND Type = @Type AND DeletedAt IS NULL)
                         THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END;
             """;
         await using var connection = await context.OpenConnectionAsync(cancellationToken);
@@ -113,13 +166,47 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
         FinancialTransaction transaction,
         CancellationToken cancellationToken)
     {
-        var sql = $"""
-            INSERT INTO {TransactionTableConfiguration.TableName} (Id, UserId, AccountId, CategoryId, Type, Description, Amount, OccurredOn, Status, Notes, CreatedAt)
-            VALUES (@Id, @UserId, @AccountId, @CategoryId, @Type, @Description, @Amount, @OccurredOn, @Status, @Notes, @CreatedAt);
-            """;
-        await using var connection = await context.OpenConnectionAsync(cancellationToken);
-        await connection.ExecuteAsync(
-            new CommandDefinition(sql, transaction, cancellationToken: cancellationToken));
+        await context.Transactions.AddAsync(transaction, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<TransactionResponseDto?> UpdateTransactionAsync(
+        Guid userId,
+        Guid transactionId,
+        UpdateTransactionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var transaction = await context.Transactions.SingleOrDefaultAsync(
+            item => item.Id == transactionId && item.UserId == userId,
+            cancellationToken);
+        if (transaction is null) return null;
+
+        transaction.Update(
+            request.AccountId,
+            request.CategoryId,
+            request.Type,
+            request.Description,
+            request.Amount,
+            request.OccurredOn,
+            request.Status,
+            request.Notes);
+        await context.SaveChangesAsync(cancellationToken);
+        return await GetTransactionAsync(userId, transactionId, cancellationToken);
+    }
+
+    public async Task<bool> DeleteTransactionAsync(
+        Guid userId,
+        Guid transactionId,
+        CancellationToken cancellationToken)
+    {
+        var transaction = await context.Transactions.SingleOrDefaultAsync(
+            item => item.Id == transactionId && item.UserId == userId,
+            cancellationToken);
+        if (transaction is null) return false;
+
+        transaction.Delete(DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<PagedResult<TransactionResponseDto>> GetTransactionsAsync(
@@ -127,7 +214,7 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
         TransactionFilterDto filter,
         CancellationToken cancellationToken)
     {
-        var where = new StringBuilder(" WHERE t.UserId = @UserId");
+        var where = new StringBuilder(" WHERE t.UserId = @UserId AND t.DeletedAt IS NULL");
         var parameters = new DynamicParameters(new { UserId = userId });
         if (filter.From is not null)
         {
@@ -200,12 +287,19 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
         var start = new DateOnly(month.Year, month.Month, 1);
         var end = start.AddMonths(1);
         var sql = $"""
-            SELECT COALESCE(SUM(a.InitialBalance), 0) + COALESCE((SELECT SUM(CASE WHEN Type = 1 THEN Amount ELSE -Amount END) FROM {TransactionTableConfiguration.TableName} WHERE UserId = @UserId AND Status = 2), 0)
-            FROM {AccountTableConfiguration.TableName} a WHERE a.UserId = @UserId AND a.IsActive = 1;
+            SELECT COALESCE(SUM(a.InitialBalance + COALESCE(t.NetAmount, 0)), 0)
+            FROM {AccountTableConfiguration.TableName} a
+            LEFT JOIN (
+                SELECT AccountId, SUM(CASE WHEN Type = 1 THEN Amount ELSE -Amount END) AS NetAmount
+                FROM {TransactionTableConfiguration.TableName}
+                WHERE Status = 2 AND DeletedAt IS NULL
+                GROUP BY AccountId
+            ) t ON t.AccountId = a.Id
+            WHERE a.UserId = @UserId AND a.IsActive = 1 AND a.DeletedAt IS NULL;
 
             SELECT COALESCE(SUM(CASE WHEN Type = 1 THEN Amount ELSE 0 END), 0) AS MonthlyIncome,
                    COALESCE(SUM(CASE WHEN Type = 2 THEN Amount ELSE 0 END), 0) AS MonthlyExpense
-            FROM {TransactionTableConfiguration.TableName} WHERE UserId = @UserId AND Status = 2 AND OccurredOn >= @Start AND OccurredOn < @End;
+            FROM {TransactionTableConfiguration.TableName} WHERE UserId = @UserId AND Status = 2 AND DeletedAt IS NULL AND OccurredOn >= @Start AND OccurredOn < @End;
 
             WITH Months AS (
                 SELECT 0 AS N, DATEADD(month, DATEDIFF(month, 0, @Start) - 5, 0) AS MonthStart
@@ -215,19 +309,19 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
                    COALESCE(SUM(CASE WHEN t.Type = 1 THEN t.Amount ELSE 0 END), 0) AS Income,
                    COALESCE(SUM(CASE WHEN t.Type = 2 THEN t.Amount ELSE 0 END), 0) AS Expense
             FROM Months m LEFT JOIN {TransactionTableConfiguration.TableName} t ON t.UserId = @UserId AND t.Status = 2
-                AND t.OccurredOn >= m.MonthStart AND t.OccurredOn < DATEADD(month, 1, m.MonthStart)
+                AND t.DeletedAt IS NULL AND t.OccurredOn >= m.MonthStart AND t.OccurredOn < DATEADD(month, 1, m.MonthStart)
             GROUP BY m.MonthStart ORDER BY m.MonthStart OPTION (MAXRECURSION 6);
 
             SELECT c.Id AS CategoryId, c.Name, c.Color, SUM(t.Amount) AS Total
             FROM {TransactionTableConfiguration.TableName} t INNER JOIN {CategoryTableConfiguration.TableName} c ON c.Id = t.CategoryId
-            WHERE t.UserId = @UserId AND t.Type = 2 AND t.Status = 2 AND t.OccurredOn >= @Start AND t.OccurredOn < @End
+            WHERE t.UserId = @UserId AND t.Type = 2 AND t.Status = 2 AND t.DeletedAt IS NULL AND t.OccurredOn >= @Start AND t.OccurredOn < @End
             GROUP BY c.Id, c.Name, c.Color ORDER BY Total DESC;
 
             SELECT TOP (8) {TransactionTableConfiguration.ReadProjection}
             FROM {TransactionTableConfiguration.TableName} t
             INNER JOIN {AccountTableConfiguration.TableName} a ON a.Id = t.AccountId
             INNER JOIN {CategoryTableConfiguration.TableName} c ON c.Id = t.CategoryId
-            WHERE t.UserId = @UserId ORDER BY t.OccurredOn DESC, t.CreatedAt DESC;
+            WHERE t.UserId = @UserId AND t.DeletedAt IS NULL ORDER BY t.OccurredOn DESC, t.CreatedAt DESC;
             """;
         await using var connection = await context.OpenConnectionAsync(cancellationToken);
         using var grid = await connection.QueryMultipleAsync(
@@ -254,6 +348,27 @@ public sealed class FinancialRepository(LedgerFlowDbContext context) : IFinancia
 
     private static string EscapeLike(string value) =>
         value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_").Replace("[", "\\[");
+
+    private async Task<TransactionResponseDto?> GetTransactionAsync(
+        Guid userId,
+        Guid transactionId,
+        CancellationToken cancellationToken)
+    {
+        var sql = $"""
+            SELECT {TransactionTableConfiguration.ReadProjection}
+            FROM {TransactionTableConfiguration.TableName} t
+            INNER JOIN {AccountTableConfiguration.TableName} a ON a.Id = t.AccountId
+            INNER JOIN {CategoryTableConfiguration.TableName} c ON c.Id = t.CategoryId
+            WHERE t.Id = @TransactionId AND t.UserId = @UserId AND t.DeletedAt IS NULL;
+            """;
+        await using var connection = await context.OpenConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<TransactionReadModel>(
+            new CommandDefinition(
+                sql,
+                new { UserId = userId, TransactionId = transactionId },
+                cancellationToken: cancellationToken));
+        return row?.ToDto();
+    }
 
     private sealed record MonthlySummary(decimal MonthlyIncome, decimal MonthlyExpense);
 }

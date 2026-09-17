@@ -18,6 +18,10 @@ apiUrl: 'http://localhost:5080/'
 
 The API returns successful calls as `{ success, message, data }`. Core services unwrap `data` before exposing observables to components. Errors remain RFC 7807 `ProblemDetails` and include `message`, `code` and `traceId`.
 
+Accounts, categories and transactions support creation and inline editing through reactive forms. Deletion asks for confirmation and calls the API's logical-delete endpoint; the item disappears from active UI collections while its database history remains intact.
+
+Edit and delete actions share accessible icon-and-text buttons with distinct colors, hover/focus feedback, tooltips and resource-specific screen-reader labels.
+
 Update the production environment URL before deploying the SPA to a topology where the browser cannot reach `localhost:5080`.
 
 ## Development
@@ -39,7 +43,7 @@ npm test -- --watch=false
 npm run build
 ```
 
-The Vitest suite covers the application shell, API URL/query construction, account creation requests, login, registration, logout/session persistence and JWT interceptor behavior.
+The Vitest suite covers the application shell, API URL/query construction, financial create/update/delete requests, login, registration, logout/session persistence and JWT interceptor behavior.
 
 ## Component convention
 

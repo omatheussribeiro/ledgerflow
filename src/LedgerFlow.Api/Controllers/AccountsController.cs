@@ -45,4 +45,30 @@ public sealed class AccountsController(IFinancialService service) : ControllerBa
             $"/api/accounts/{account.Id}",
             ApiResponseFactory.Success(account, "Account created successfully."));
     }
+
+    /// <summary>Updates an active account owned by the authenticated user.</summary>
+    [HttpPut("{accountId:guid}")]
+    [ProducesResponseType<ApiResponseDto<AccountResponseDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ApiResponseDto<AccountResponseDto>>> Update(
+        Guid accountId,
+        UpdateAccountRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var account = await service.UpdateAccountAsync(
+            User.GetUserId(), accountId, request, cancellationToken);
+        return Ok(ApiResponseFactory.Success(account, "Account updated successfully."));
+    }
+
+    /// <summary>Logically deletes an account while preserving its historical data.</summary>
+    [HttpDelete("{accountId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(Guid accountId, CancellationToken cancellationToken)
+    {
+        await service.DeleteAccountAsync(User.GetUserId(), accountId, cancellationToken);
+        return NoContent();
+    }
 }

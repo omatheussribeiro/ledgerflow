@@ -4,6 +4,8 @@ namespace LedgerFlow.Domain.Identity;
 
 public sealed record User(Guid Id, string Name, string Email, string PasswordHash, string Role, DateTimeOffset CreatedAt)
 {
+    public string NormalizedEmail { get; init; } = Email.ToUpperInvariant();
+
     public static User Create(string name, string email, string passwordHash, string role = "User")
     {
         if (string.IsNullOrWhiteSpace(name)) throw new DomainException("Name is required.");

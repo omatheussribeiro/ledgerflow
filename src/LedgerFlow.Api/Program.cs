@@ -141,12 +141,10 @@ if (Encoding.UTF8.GetByteCount(jwt.SigningKey) < 32 ||
 
 if (app.Configuration.GetValue("Database:RunMigrations", true))
 {
-    app.Services.GetRequiredService<DatabaseInitializer>().Migrate();
+    using var scope = app.Services.CreateScope();
+    scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().Migrate();
     if (app.Environment.IsDevelopment() && app.Configuration.GetValue("Database:SeedDevelopmentData", true))
-    {
-        using var scope = app.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<DevelopmentDataSeeder>().SeedAsync();
-    }
 }
 
 app.UseMiddleware<RequestContextMiddleware>();

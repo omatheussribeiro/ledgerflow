@@ -45,4 +45,30 @@ public sealed class CategoriesController(IFinancialService service) : Controller
             $"/api/categories/{category.Id}",
             ApiResponseFactory.Success(category, "Category created successfully."));
     }
+
+    /// <summary>Updates a category owned by the authenticated user.</summary>
+    [HttpPut("{categoryId:guid}")]
+    [ProducesResponseType<ApiResponseDto<CategoryResponseDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ApiResponseDto<CategoryResponseDto>>> Update(
+        Guid categoryId,
+        UpdateCategoryRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var category = await service.UpdateCategoryAsync(
+            User.GetUserId(), categoryId, request, cancellationToken);
+        return Ok(ApiResponseFactory.Success(category, "Category updated successfully."));
+    }
+
+    /// <summary>Logically deletes a category while preserving transaction history.</summary>
+    [HttpDelete("{categoryId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(Guid categoryId, CancellationToken cancellationToken)
+    {
+        await service.DeleteCategoryAsync(User.GetUserId(), categoryId, cancellationToken);
+        return NoContent();
+    }
 }
