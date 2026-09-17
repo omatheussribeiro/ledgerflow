@@ -27,6 +27,14 @@ export class ApiService {
       .post<ApiResponse<Account>>(`${this.baseUrl}/accounts`, body)
       .pipe(map((response) => response.data));
   }
+  updateAccount(id: string, body: { name: string; type: number; initialBalance: number }): Observable<Account> {
+    return this.http
+      .put<ApiResponse<Account>>(`${this.baseUrl}/accounts/${id}`, body)
+      .pipe(map((response) => response.data));
+  }
+  deleteAccount(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/accounts/${id}`);
+  }
   getCategories(): Observable<Category[]> {
     return this.http
       .get<ApiResponse<Category[]>>(`${this.baseUrl}/categories`)
@@ -36,6 +44,14 @@ export class ApiService {
     return this.http
       .post<ApiResponse<Category>>(`${this.baseUrl}/categories`, body)
       .pipe(map((response) => response.data));
+  }
+  updateCategory(id: string, body: { name: string; type: TransactionType; color: string }): Observable<Category> {
+    return this.http
+      .put<ApiResponse<Category>>(`${this.baseUrl}/categories/${id}`, body)
+      .pipe(map((response) => response.data));
+  }
+  deleteCategory(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/categories/${id}`);
   }
   getTransactions(filters: Record<string, string | number | undefined> = {}): Observable<PagedResult<Transaction>> {
     let params = new HttpParams();
@@ -48,5 +64,13 @@ export class ApiService {
     return this.http
       .post<ApiResponse<Transaction>>(`${this.baseUrl}/transactions`, body)
       .pipe(map((response) => response.data));
+  }
+  updateTransaction(id: string, body: object): Observable<Transaction> {
+    return this.http
+      .put<ApiResponse<Transaction>>(`${this.baseUrl}/transactions/${id}`, body)
+      .pipe(map((response) => response.data));
+  }
+  deleteTransaction(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/transactions/${id}`);
   }
 }

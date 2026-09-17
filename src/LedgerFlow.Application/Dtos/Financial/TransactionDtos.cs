@@ -14,6 +14,17 @@ public sealed record CreateTransactionRequestDto(
     [EnumDataType(typeof(TransactionStatus))] TransactionStatus Status = TransactionStatus.Cleared,
     [StringLength(500)] string? Notes = null);
 
+/// <summary>Data required to update an existing financial movement.</summary>
+public sealed record UpdateTransactionRequestDto(
+    Guid AccountId,
+    Guid CategoryId,
+    [EnumDataType(typeof(TransactionType))] TransactionType Type,
+    [Required, StringLength(160)] string Description,
+    [Range(0.01, 999999999.99)] decimal Amount,
+    DateOnly OccurredOn,
+    [EnumDataType(typeof(TransactionStatus))] TransactionStatus Status = TransactionStatus.Cleared,
+    [StringLength(500)] string? Notes = null);
+
 /// <summary>A transaction enriched with account and category display data.</summary>
 public sealed record TransactionResponseDto(
     Guid Id,

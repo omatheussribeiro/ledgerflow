@@ -55,4 +55,16 @@ public sealed class ApplicationValidatorTests
         action.Should().Throw<ApplicationValidationException>()
             .Which.Errors.Should().ContainKey(nameof(TransactionFilterDto.From));
     }
+
+    [Fact]
+    public void UpdateAccount_WithBlankName_ReturnsValidationError()
+    {
+        var validator = new UpdateAccountRequestValidator();
+        var request = new UpdateAccountRequestDto(" ", AccountType.Checking, 0m);
+
+        var action = () => validator.ValidateAndThrow(request);
+
+        action.Should().Throw<ApplicationValidationException>()
+            .Which.Errors.Should().ContainKey(nameof(UpdateAccountRequestDto.Name));
+    }
 }

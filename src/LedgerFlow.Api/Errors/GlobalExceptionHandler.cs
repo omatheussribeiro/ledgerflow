@@ -4,6 +4,7 @@ using LedgerFlow.Domain.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace LedgerFlow.Api.Errors;
 
@@ -64,6 +65,16 @@ public sealed partial class GlobalExceptionHandler(
             "Duplicate resource",
             "A resource with the same unique information already exists.",
             "duplicate_resource"),
+        DbUpdateException { InnerException: SqlException { Number: 2601 or 2627 } } => new(
+            StatusCodes.Status409Conflict,
+            "Duplicate resource",
+            "A resource with the same unique information already exists.",
+            "duplicate_resource"),
+        DbUpdateException => new(
+            StatusCodes.Status503ServiceUnavailable,
+            "Database update failed",
+            "The database could not persist the requested change. Try again later.",
+            "database_update_failed"),
         SqlException or DbException => new(
             StatusCodes.Status503ServiceUnavailable,
             "Database unavailable",

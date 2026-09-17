@@ -75,4 +75,29 @@ public sealed class TransactionsController(IFinancialService service) : Controll
                 transaction,
                 "Transaction recorded successfully."));
     }
+
+    /// <summary>Updates a transaction owned by the authenticated user.</summary>
+    [HttpPut("{transactionId:guid}")]
+    [ProducesResponseType<ApiResponseDto<TransactionResponseDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponseDto<TransactionResponseDto>>> Update(
+        Guid transactionId,
+        UpdateTransactionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var transaction = await service.UpdateTransactionAsync(
+            User.GetUserId(), transactionId, request, cancellationToken);
+        return Ok(ApiResponseFactory.Success(transaction, "Transaction updated successfully."));
+    }
+
+    /// <summary>Logically deletes a transaction so it no longer affects balances or reports.</summary>
+    [HttpDelete("{transactionId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(Guid transactionId, CancellationToken cancellationToken)
+    {
+        await service.DeleteTransactionAsync(User.GetUserId(), transactionId, cancellationToken);
+        return NoContent();
+    }
 }

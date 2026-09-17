@@ -1,5 +1,8 @@
 @LedgerFlow.Api_HostAddress = http://localhost:5080
 @AccessToken = paste-access-token-here
+@AccountId = paste-account-id-here
+@CategoryId = paste-category-id-here
+@TransactionId = paste-transaction-id-here
 
 GET {{LedgerFlow.Api_HostAddress}}/health
 Accept: application/json
@@ -19,5 +22,61 @@ Content-Type: application/json
 GET {{LedgerFlow.Api_HostAddress}}/api/dashboard
 Authorization: Bearer {{AccessToken}}
 Accept: application/json
+
+###
+
+PUT {{LedgerFlow.Api_HostAddress}}/api/accounts/{{AccountId}}
+Authorization: Bearer {{AccessToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated account",
+  "type": 1,
+  "initialBalance": 1500.00
+}
+
+###
+
+DELETE {{LedgerFlow.Api_HostAddress}}/api/accounts/{{AccountId}}
+Authorization: Bearer {{AccessToken}}
+
+###
+
+PUT {{LedgerFlow.Api_HostAddress}}/api/categories/{{CategoryId}}
+Authorization: Bearer {{AccessToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated category",
+  "type": 2,
+  "color": "#654321"
+}
+
+###
+
+DELETE {{LedgerFlow.Api_HostAddress}}/api/categories/{{CategoryId}}
+Authorization: Bearer {{AccessToken}}
+
+###
+
+PUT {{LedgerFlow.Api_HostAddress}}/api/transactions/{{TransactionId}}
+Authorization: Bearer {{AccessToken}}
+Content-Type: application/json
+
+{
+  "accountId": "{{AccountId}}",
+  "categoryId": "{{CategoryId}}",
+  "type": 2,
+  "description": "Updated transaction",
+  "amount": 75.00,
+  "occurredOn": "2026-09-16",
+  "status": 2,
+  "notes": "Updated through the API"
+}
+
+###
+
+DELETE {{LedgerFlow.Api_HostAddress}}/api/transactions/{{TransactionId}}
+Authorization: Bearer {{AccessToken}}
 
 ###

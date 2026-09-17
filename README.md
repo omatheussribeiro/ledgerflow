@@ -5,7 +5,7 @@
 [![Angular 22](https://img.shields.io/badge/Angular-22-DD0031)](https://angular.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-LedgerFlow is a full-stack financial management platform built to make personal and professional cash flow understandable. It pairs a focused Angular workspace with a secure .NET API, explicit Dapper queries, a constrained SQL Server schema, automated tests and container-first delivery.
+LedgerFlow is a full-stack financial management platform built to make personal and professional cash flow understandable. It pairs a focused Angular workspace with a secure .NET API, EF Core entity persistence, explicit Dapper read queries, a constrained SQL Server schema, automated tests and container-first delivery.
 
 > This repository favors visible trade-offs over ceremonial abstractions. The current release is a working portfolio MVP: authentication, accounts, categories, transactions, dashboard and reports are implemented end to end. Transfers, cost centers and recurring entries are intentionally tracked in the roadmap.
 
@@ -18,9 +18,9 @@ The API starts by applying idempotent DbUp migrations. In Development only, it c
 ## Features
 
 - JWT access tokens, rotating opaque refresh tokens, revocation and role/policy support
-- Accounts with computed balances and explicit account types
-- Income/expense categories with report colors
-- Financial transactions with status, notes, server validation and secure filters
+- Accounts with computed balances, editing and recoverable logical deletion
+- Income/expense categories with report colors, editing and logical deletion
+- Financial transactions with status, notes, editing, logical deletion, server validation and secure filters
 - Dashboard with total balance, monthly income/expenses/result, six-month evolution, category breakdown and recent activity
 - Reports with savings rate, period averages and expense concentration
 - Responsive Angular UI with standalone components, signals, reactive forms, lazy routes, guard and interceptor
@@ -39,8 +39,8 @@ The implemented UI includes five responsive views:
 | --- | --- |
 | Sign in / registration | Clear authentication states, validation and demo access |
 | Dashboard | KPI cards, cash-flow bars, category concentration and activity feed |
-| Transactions | Secure filters, pagination and a complete reactive entry form |
-| Accounts / categories | Focused creation workflows and empty states |
+| Transactions | Secure filters, pagination and complete create/edit/delete workflows |
+| Accounts / categories | Focused create/edit/delete workflows and empty states |
 | Reports | Savings rate, rolling averages and spending concentration |
 
 Screenshots can be added under `docs/images/` as the visual language evolves; the source UI is the canonical representation and is available immediately through Docker Compose.
@@ -56,7 +56,7 @@ flowchart LR
   APP --> DOMAIN[Domain rules + enums]
   APP -->|Repository interfaces| INFRA[Infrastructure repositories]
   INFRA --> CONTEXT[Persistence context]
-  CONTEXT -->|Parameterized Dapper SQL| SQL[(SQL Server)]
+  CONTEXT -->|EF Core mutations + parameterized Dapper reads| SQL[(SQL Server)]
   CONTEXT -->|Versioned scripts| DBUP[DbUp]
   DBUP --> SQL
   TESTS[Test suites] -. verify .-> DOMAIN
@@ -73,14 +73,14 @@ Dependencies point inward where it matters:
 - **LedgerFlow.Api** is the delivery/composition layer: controllers, JWT issuance, middleware, OpenAPI and DI.
 - **LedgerFlow.Web** is a separately deployable Angular application organized by `core` and `features`.
 
-Controllers depend on `IAuthService` and `IFinancialService`; services depend on repository/security interfaces; only Infrastructure knows the Dapper implementations. There is one repository abstraction per coherent persistence boundary, not one interface per table or command.
+Controllers depend on `IAuthService` and `IFinancialService`; services depend on repository/security interfaces; only Infrastructure knows the EF Core and Dapper implementations. There is one repository abstraction per coherent persistence boundary, not one interface per table or command.
 
 ## Technology Stack
 
 | Area | Technology |
 | --- | --- |
 | API | .NET 10, ASP.NET Core controllers, C# |
-| Data | SQL Server 2022, Dapper, Microsoft.Data.SqlClient, DbUp |
+| Data | SQL Server 2022, EF Core, Dapper, Microsoft.Data.SqlClient, DbUp |
 | Security | JWT Bearer, opaque refresh tokens, PBKDF2-SHA512, policies |
 | Web | Angular 22, TypeScript 6, standalone components, signals, RxJS |
 | Observability | Serilog, structured request logs, correlation IDs |
@@ -110,7 +110,7 @@ LedgerFlow/
 │   │   │   ├── Context/            # Connection, migrations and seed
 │   │   │   │   └── Configurations/ # Table metadata and read projections
 │   │   │   ├── Migrations/         # Versioned DbUp scripts
-│   │   │   └── Repositories/       # Dapper implementations
+│   │   │   └── Repositories/       # EF Core mutations and Dapper reads
 │   │   └── Security/               # Password hashing adapter
 │   └── LedgerFlow.Web/             # Angular application
 ├── tests/
@@ -145,9 +145,12 @@ LedgerFlow uses **DbUp**, because schema changes are SQL-first and should not in
 003_CreateTransactions.sql
 004_CreateRefreshTokens.sql
 005_CreateIndexes.sql
+006_AddSoftDeletion.sql
 ```
 
 The API runs pending migrations at startup when `Database__RunMigrations=true`. DbUp creates the database when needed and records executed scripts in `SchemaVersions`. Never edit an applied migration; add the next numbered script.
+
+When a migration references a column created earlier in the same script, it must start a new SQL Server batch with `GO`. Schema-changing scripts should also guard restartable operations because a failed DbUp script is not journaled and may be attempted again after partially applying earlier batches.
 
 Development seed data runs only under the `Development` environment when `Database__SeedDevelopmentData=true`:
 
@@ -159,21 +162,23 @@ Production never enables this seed.
 
 ### Persistence context and table configuration
 
-`LedgerFlowDbContext` centralizes the SQL Server connection string and creates open, cancellable connections for repositories and seed operations. `DatabaseInitializer` and `DevelopmentDataSeeder` live beside it under `Persistence/Context`.
+`LedgerFlowDbContext` is an EF Core context that exposes `DbSet`s for users, accounts, categories, transactions and refresh tokens. It also creates open, cancellable connections for the Dapper repositories and seed operations. `DatabaseInitializer` and `DevelopmentDataSeeder` live beside it under `Persistence/Context`.
 
-Because the project uses Dapper rather than EF Core, table configuration is intentionally SQL-oriented: the classes under `Context/Configurations` centralize qualified table names and reusable read projections. The migrations remain the authoritative DDL definition for columns, constraints, indexes and relationships. Repositories live exclusively under `Persistence/Repositories` and consume the Application interfaces. Query results are first materialized into Infrastructure read models using provider-native types (`byte`, `DateTime`) and then explicitly converted to Application DTO enums and `DateOnly` values.
+The classes under `Context/Configurations` configure each EF Core entity with `ModelBuilder.Entity`, including keys, SQL types, relationships, indexes, constraints and global soft-delete query filters. Financial creates, updates and logical deletes use the configured `DbSet`s; aggregate, dashboard and paginated reads retain explicit Dapper SQL with qualified table names and reusable projections. DbUp migrations remain the authoritative DDL definition. Query results are first materialized into Infrastructure read models using provider-native types (`byte`, `DateTime`) and then explicitly converted to Application DTO enums and `DateOnly` values.
 
-## Why Dapper?
+Accounts, categories and transactions contain a nullable UTC `DeletedAt`. `DELETE` endpoints set this timestamp instead of removing rows; deleting an account also sets `IsActive=false`. Deleted accounts and categories leave active lists and selectors, deleted accounts leave the current total balance, and deleted transactions stop affecting every balance and report. Non-deleted historical transactions retain their account/category labels even when a referenced parent is deleted. Filtered unique indexes allow a user to reuse an account or category name after its previous record has been deleted.
 
-Dapper is a deliberate fit for this project, not a claim that a micro-ORM is universally superior.
+## Why EF Core and Dapper?
 
-**Advantages:** the executed SQL is visible and predictable; report queries can use the database naturally; projections transfer only required columns; there is no change tracker; and query plans are easy to relate to repository code. LedgerFlow demonstrates joins, conditional `SUM`, `COUNT`, a month-generating CTE, multi-result queries, pagination and safe dynamic filters.
+The hybrid persistence model is deliberate: EF Core provides configured entities and tracked mutations, while Dapper keeps reporting and aggregation SQL explicit.
 
-**Costs:** developers own mapping, migrations, relationship handling and query/schema synchronization. CRUD requires more SQL and refactors do not automatically flow through queries. Poor SQL is still poor SQL; Dapper does not create performance by itself.
+**Advantages:** read-side SQL is visible and predictable; report queries can use the database naturally; projections transfer only required columns; and query plans are easy to relate to repository code. EF Core handles tracked aggregate mutations and centralizes entity metadata. LedgerFlow demonstrates joins, conditional `SUM`, `COUNT`, a month-generating CTE, multi-result queries, pagination and safe dynamic filters.
 
-**Security and maintainability:** every value is passed as a parameter. Dynamic filtering appends only fixed, code-owned SQL fragments and puts user values in `DynamicParameters`. No user input becomes an identifier or SQL fragment. Cancellation tokens flow through `CommandDefinition`, and multi-step refresh-token rotation uses a database transaction and update lock.
+**Costs:** developers must keep EF mappings, Dapper projections and DbUp migrations synchronized. Refactors do not automatically flow through explicit read queries, and poor SQL is still poor SQL.
 
-Dapper is a good choice when a team is comfortable owning SQL, read models matter, query control is valuable and the domain does not need a sophisticated unit-of-work/change-tracking model. I would likely choose EF Core for a CRUD-heavy system with large aggregate graphs, frequent schema evolution and a team whose productivity benefits more from LINQ and tracked persistence than from SQL-level control. A hybrid can also be valid when boundaries remain explicit.
+**Security and maintainability:** EF Core parameterizes mutations, and every Dapper value is passed as a parameter. Dynamic filtering appends only fixed, code-owned SQL fragments and puts user values in `DynamicParameters`. No user input becomes an identifier or SQL fragment. Cancellation tokens flow through both persistence paths, and multi-step refresh-token rotation uses a database transaction and update lock.
+
+This split fits LedgerFlow because write operations benefit from domain behavior and change tracking, while dashboards and paginated ledgers benefit from purpose-built SQL. The repository boundary prevents either implementation detail from leaking into Application or API layers.
 
 ## Authentication
 
@@ -206,10 +211,10 @@ npm test -- --watch=false
 npm run lint
 ```
 
-- **Unit tests** protect monetary normalization, positive-amount rules, category color rules, mappings and application validators.
+- **Unit tests** protect creation, editing, logical deletion, monetary normalization, category color rules, EF query filters, mappings and application validators.
 - **Architecture tests** prevent inward layers from depending on API/infrastructure and enforce controller conventions.
-- **Integration tests** start a real SQL Server container, apply real migrations, host the API in memory and exercise registration plus an authenticated account journey.
-- **Frontend tests** use Angular's Vitest-based runner and cover API URL/query composition, account mutations, login, registration, logout/session persistence, auth headers and the application shell. The strict build and ESLint accessibility rules provide additional static checks.
+- **Integration tests** start a real SQL Server container, apply real migrations, host the API in memory and exercise authenticated creation, editing and logical deletion of all financial resources.
+- **Frontend tests** use Angular's Vitest-based runner and cover API URL/query composition, create/update/delete requests, login, registration, logout/session persistence, auth headers and the application shell. The strict build and ESLint accessibility rules provide additional static checks.
 
 Docker must be running for integration tests. These tests prioritize meaningful boundaries rather than chasing a coverage percentage.
 
@@ -282,9 +287,9 @@ Use .NET user-secrets, a platform secret store, Docker/Kubernetes secrets or env
 Swagger UI is enabled only in Development at `/swagger`. Operations include XML summaries, parameter descriptions, success schemas, validation/authentication/conflict responses and JWT requirements. Click **Authorize** and paste the access token returned by `/api/auth/login` (without adding the word `Bearer`). The principal endpoints are:
 
 - `POST /api/auth/register`, `/login`, `/refresh`, `/logout`
-- `GET|POST /api/accounts`
-- `GET|POST /api/categories`
-- `GET|POST /api/transactions`
+- `GET|POST /api/accounts`, `PUT|DELETE /api/accounts/{id}`
+- `GET|POST /api/categories`, `PUT|DELETE /api/categories/{id}`
+- `GET|POST /api/transactions`, `PUT|DELETE /api/transactions/{id}`
 - `GET /api/dashboard`
 - `GET /health`
 
@@ -316,6 +321,7 @@ Failures use RFC 7807 `ProblemDetails` with a stable error code and correlation 
 | --- | --- |
 | `200 OK` | Query, authentication, refresh or logout completed |
 | `201 Created` | User, account, category or transaction created |
+| `204 No Content` | Account, category or transaction logically deleted |
 | `400 Bad Request` | Binding or request validation failure |
 | `401 Unauthorized` | Missing, invalid or rejected authentication |
 | `403 Forbidden` | Authenticated user lacks permission |
@@ -367,11 +373,12 @@ Performance decisions should be validated with representative data and actual qu
 
 ## Architectural Decisions
 
-- [ADR 001 — Dapper](docs/adr/001-use-dapper.md)
+- [ADR 001 — Hybrid EF Core and Dapper persistence](docs/adr/001-use-dapper.md)
 - [ADR 002 — SQL Server](docs/adr/002-use-sql-server.md)
 - [ADR 003 — Angular](docs/adr/003-use-angular.md)
 - [ADR 004 — JWT authentication](docs/adr/004-use-jwt-authentication.md)
 - [ADR 005 — GitHub Actions](docs/adr/005-use-github-actions.md)
+- [ADR 006 — Logical deletion](docs/adr/006-use-soft-deletion.md)
 
 ## Roadmap
 
@@ -389,9 +396,9 @@ Performance decisions should be validated with representative data and actual qu
 
 Suggested description:
 
-> Financial management platform built with .NET 10, Angular, SQL Server and Dapper, focused on clean architecture, optimized SQL, security, automated testing and CI/CD.
+> Financial management platform built with .NET 10, Angular, EF Core, Dapper and SQL Server, focused on clean architecture, optimized SQL, security, automated testing and CI/CD.
 
-Suggested topics: `dotnet`, `dotnet10`, `aspnetcore`, `csharp`, `angular`, `typescript`, `dapper`, `sqlserver`, `clean-architecture`, `rest-api`, `jwt`, `xunit`, `docker`, `github-actions`, `ci-cd`, `opentelemetry`, `serilog`, `fullstack`, `software-architecture`, `portfolio`.
+Suggested topics: `dotnet`, `dotnet10`, `aspnetcore`, `csharp`, `angular`, `typescript`, `entity-framework-core`, `dapper`, `sqlserver`, `clean-architecture`, `rest-api`, `jwt`, `xunit`, `docker`, `github-actions`, `ci-cd`, `opentelemetry`, `serilog`, `fullstack`, `software-architecture`, `portfolio`.
 
 ## License
 

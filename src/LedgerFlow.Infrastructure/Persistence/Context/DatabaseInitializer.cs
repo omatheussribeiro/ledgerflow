@@ -17,6 +17,8 @@ public sealed class DatabaseInitializer(LedgerFlowDbContext context)
             .Build()
             .PerformUpgrade();
         if (!result.Successful)
-            throw new InvalidOperationException("Database migration failed.", result.Error);
+            throw new InvalidOperationException(
+                $"Database migration failed: {result.Error.Message}",
+                result.Error);
     }
 }
