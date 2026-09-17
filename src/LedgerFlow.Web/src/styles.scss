@@ -27,6 +27,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .button.primary { background: #09251f; border-color: #09251f; color: white; }
 .button.primary:hover { background: #0e382e; }
 .button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+.entity-actions { display: flex; align-items: center; gap: 8px; }
+.entity-action { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; border: 1px solid transparent; border-radius: 9px; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; transition: border-color .2s, background .2s, box-shadow .2s, transform .2s; }
+.entity-action svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.entity-action.edit { border-color: #9edccb; background: #effaf6; color: #08775b; }
+.entity-action.edit:hover { border-color: #18b887; background: #dffbf3; box-shadow: 0 5px 14px #08785c1f; transform: translateY(-1px); }
+.entity-action.delete { border-color: #efc5bf; background: #fff4f2; color: #a0392d; }
+.entity-action.delete:hover { border-color: #d66a5d; background: #ffe7e3; box-shadow: 0 5px 14px #a0392d1f; transform: translateY(-1px); }
+.entity-action:disabled { cursor: wait; opacity: .55; transform: none; box-shadow: none; }
 label { display: grid; gap: 7px; color: #344a44; font-size: 11px; font-weight: 700; }
 input, select { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; background: white; color: var(--ink); outline: 0; }
 input:focus, select:focus { border-color: var(--accent-strong); box-shadow: 0 0 0 3px #18b88712; }

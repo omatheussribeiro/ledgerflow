@@ -69,4 +69,76 @@ describe('ApiService', () => {
       data: { id: 'account-id', ...account, balance: 500, isActive: true },
     });
   });
+
+  it('updates and deletes an account using its resource URL', () => {
+    const account = { name: 'Updated checking', type: 1, initialBalance: 750 };
+    service.updateAccount('account-id', account).subscribe();
+
+    const update = http.expectOne('http://localhost:5080/api/accounts/account-id');
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body).toEqual(account);
+    update.flush({
+      success: true,
+      message: 'Account updated successfully.',
+      data: { id: 'account-id', ...account, balance: 750, isActive: true },
+    });
+
+    service.deleteAccount('account-id').subscribe();
+    const deletion = http.expectOne('http://localhost:5080/api/accounts/account-id');
+    expect(deletion.request.method).toBe('DELETE');
+    deletion.flush(null);
+  });
+
+  it('updates and deletes a category using its resource URL', () => {
+    const category = { name: 'Education', type: 2 as const, color: '#123456' };
+    service.updateCategory('category-id', category).subscribe();
+
+    const update = http.expectOne('http://localhost:5080/api/categories/category-id');
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body).toEqual(category);
+    update.flush({
+      success: true,
+      message: 'Category updated successfully.',
+      data: { id: 'category-id', ...category },
+    });
+
+    service.deleteCategory('category-id').subscribe();
+    const deletion = http.expectOne('http://localhost:5080/api/categories/category-id');
+    expect(deletion.request.method).toBe('DELETE');
+    deletion.flush(null);
+  });
+
+  it('updates and deletes a transaction using its resource URL', () => {
+    const transaction = {
+      accountId: 'account-id',
+      categoryId: 'category-id',
+      type: 2,
+      description: 'Updated expense',
+      amount: 25,
+      occurredOn: '2026-09-16',
+      status: 2,
+      notes: '',
+    };
+    service.updateTransaction('transaction-id', transaction).subscribe();
+
+    const update = http.expectOne('http://localhost:5080/api/transactions/transaction-id');
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body).toEqual(transaction);
+    update.flush({
+      success: true,
+      message: 'Transaction updated successfully.',
+      data: {
+        id: 'transaction-id',
+        ...transaction,
+        accountName: 'Checking',
+        categoryName: 'Education',
+        categoryColor: '#123456',
+      },
+    });
+
+    service.deleteTransaction('transaction-id').subscribe();
+    const deletion = http.expectOne('http://localhost:5080/api/transactions/transaction-id');
+    expect(deletion.request.method).toBe('DELETE');
+    deletion.flush(null);
+  });
 });

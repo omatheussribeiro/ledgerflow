@@ -1,13 +1,19 @@
-# ADR 001: Use Dapper for persistence
+# ADR 001: Use EF Core and Dapper behind the persistence boundary
 
 ## Context
 
-LedgerFlow must demonstrate explicit SQL design, predictable queries and report-oriented read models without the change-tracking behavior of a full ORM.
+LedgerFlow needs predictable report-oriented queries while also benefiting from a strongly typed entity model for aggregate mutations.
 
 ## Decision
 
-Use Dapper behind application-owned repository interfaces. Keep SQL next to its repository, always parameterize values, use `CommandDefinition` for cancellation, and use explicit database transactions for token rotation and other multi-write operations. Schema evolution is handled by DbUp, not Entity Framework.
+Use a hybrid persistence implementation behind application-owned repository interfaces:
+
+- EF Core `DbSet`s perform financial entity creation, editing and logical deletion.
+- `ModelBuilder.Entity` configurations define keys, property types, relationships, indexes, constraints and logical-deletion query filters.
+- Dapper handles aggregate, dashboard, paginated and authentication queries where explicit SQL is valuable.
+- DbUp scripts, rather than EF Core migrations, remain the authoritative schema history.
+- Explicit database transactions remain in use for refresh-token rotation and other multi-write operations.
 
 ## Consequences
 
-The team owns SQL mapping, schema compatibility and query performance. There is more code than with EF Core for simple CRUD, but complex joins, aggregation, CTEs and query plans stay visible. EF Core would remain a reasonable choice for domains dominated by aggregate persistence and high CRUD throughput.
+The team must keep the EF model, Dapper projections and DbUp scripts synchronized. In exchange, entity mutations use domain behavior and change tracking while complex joins, aggregation, CTEs and query plans stay visible. Both paths remain internal to Infrastructure and share the same scoped `LedgerFlowDbContext` connection configuration.

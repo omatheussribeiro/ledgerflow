@@ -17,6 +17,13 @@ public sealed partial class CreateAccountRequestValidator : IRequestValidator<Cr
     }
 }
 
+public sealed class UpdateAccountRequestValidator : IRequestValidator<UpdateAccountRequestDto>
+{
+    public void ValidateAndThrow(UpdateAccountRequestDto request) =>
+        new CreateAccountRequestValidator().ValidateAndThrow(
+            new CreateAccountRequestDto(request.Name, request.Type, request.InitialBalance));
+}
+
 public sealed partial class CreateCategoryRequestValidator : IRequestValidator<CreateCategoryRequestDto>
 {
     [GeneratedRegex("^#[0-9a-fA-F]{6}$", RegexOptions.CultureInvariant)]
@@ -36,6 +43,13 @@ public sealed partial class CreateCategoryRequestValidator : IRequestValidator<C
     }
 }
 
+public sealed class UpdateCategoryRequestValidator : IRequestValidator<UpdateCategoryRequestDto>
+{
+    public void ValidateAndThrow(UpdateCategoryRequestDto request) =>
+        new CreateCategoryRequestValidator().ValidateAndThrow(
+            new CreateCategoryRequestDto(request.Name, request.Type, request.Color));
+}
+
 public sealed class CreateTransactionRequestValidator : IRequestValidator<CreateTransactionRequestDto>
 {
     public void ValidateAndThrow(CreateTransactionRequestDto request)
@@ -52,6 +66,21 @@ public sealed class CreateTransactionRequestValidator : IRequestValidator<Create
         errors.AddIf(request.Notes?.Length > 500, nameof(request.Notes), "Notes cannot exceed 500 characters.");
         errors.ThrowIfInvalid();
     }
+}
+
+public sealed class UpdateTransactionRequestValidator : IRequestValidator<UpdateTransactionRequestDto>
+{
+    public void ValidateAndThrow(UpdateTransactionRequestDto request) =>
+        new CreateTransactionRequestValidator().ValidateAndThrow(
+            new CreateTransactionRequestDto(
+                request.AccountId,
+                request.CategoryId,
+                request.Type,
+                request.Description,
+                request.Amount,
+                request.OccurredOn,
+                request.Status,
+                request.Notes));
 }
 
 public sealed class TransactionFilterValidator : IRequestValidator<TransactionFilterDto>

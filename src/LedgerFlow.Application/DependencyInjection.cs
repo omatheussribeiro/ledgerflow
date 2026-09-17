@@ -17,8 +17,11 @@ public static class DependencyInjection
         services.AddScoped<IRequestValidator<LoginRequestDto>, LoginRequestValidator>();
         services.AddScoped<IRequestValidator<RefreshRequestDto>, RefreshRequestValidator>();
         services.AddScoped<IRequestValidator<CreateAccountRequestDto>, CreateAccountRequestValidator>();
+        services.AddScoped<IRequestValidator<UpdateAccountRequestDto>, UpdateAccountRequestValidator>();
         services.AddScoped<IRequestValidator<CreateCategoryRequestDto>, CreateCategoryRequestValidator>();
+        services.AddScoped<IRequestValidator<UpdateCategoryRequestDto>, UpdateCategoryRequestValidator>();
         services.AddScoped<IRequestValidator<CreateTransactionRequestDto>, CreateTransactionRequestValidator>();
+        services.AddScoped<IRequestValidator<UpdateTransactionRequestDto>, UpdateTransactionRequestValidator>();
         services.AddScoped<IRequestValidator<TransactionFilterDto>, TransactionFilterValidator>();
         return services;
     }

@@ -3,6 +3,7 @@ using LedgerFlow.Application.Interfaces.Services;
 using LedgerFlow.Infrastructure.Persistence.Context;
 using LedgerFlow.Infrastructure.Persistence.Repositories;
 using LedgerFlow.Infrastructure.Security;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LedgerFlow.Infrastructure;
@@ -15,8 +16,15 @@ public static class DependencyInjection
     {
         ArgumentNullException.ThrowIfNull(connectionStringFactory);
 
-        services.AddSingleton(_ => new LedgerFlowDbContext(connectionStringFactory()));
-        services.AddSingleton<DatabaseInitializer>();
+        services.AddDbContext<LedgerFlowDbContext>((_, options) =>
+        {
+            var connectionString = connectionStringFactory();
+            if (string.IsNullOrWhiteSpace(connectionString))
+                throw new InvalidOperationException("A database connection string is required.");
+
+            options.UseSqlServer(connectionString);
+        });
+        services.AddScoped<DatabaseInitializer>();
         services.AddScoped<IFinancialRepository, FinancialRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddSingleton<IPasswordService, Pbkdf2PasswordService>();

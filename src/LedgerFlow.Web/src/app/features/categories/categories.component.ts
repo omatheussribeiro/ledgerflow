@@ -19,6 +19,8 @@ export class CategoriesComponent {
   readonly income = () => this.categories().filter((item) => item.type === 1);
   readonly showForm = signal(false);
   readonly saving = signal(false);
+  readonly deletingId = signal<string | null>(null);
+  readonly editingId = signal<string | null>(null);
   readonly error = signal('');
   readonly form = new FormGroup({
     name: new FormControl('', {
@@ -39,20 +41,59 @@ export class CategoriesComponent {
     });
   }
 
-  create(): void {
+  openCreate(): void {
+    this.editingId.set(null);
+    this.form.reset({ name: '', type: 2, color: '#18b887' });
+    this.showForm.set(true);
+  }
+
+  edit(category: Category): void {
+    this.editingId.set(category.id);
+    this.form.reset({ name: category.name, type: category.type, color: category.color });
+    this.showForm.set(true);
+  }
+
+  cancel(): void {
+    this.editingId.set(null);
+    this.showForm.set(false);
+  }
+
+  save(): void {
     if (this.form.invalid) return;
 
     this.saving.set(true);
-    this.api
-      .createCategory(this.form.getRawValue())
+    this.error.set('');
+    const id = this.editingId();
+    const request = id
+      ? this.api.updateCategory(id, this.form.getRawValue())
+      : this.api.createCategory(this.form.getRawValue());
+    request
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: (item) => {
-          this.categories.update((items) => [...items, item]);
-          this.form.reset({ name: '', type: 2, color: '#18b887' });
-          this.showForm.set(false);
+          this.categories.update((items) =>
+            id ? items.map((current) => (current.id === id ? item : current)) : [...items, item],
+          );
+          this.cancel();
         },
         error: () => this.error.set('Could not save this category. Check for a duplicate name.'),
+      });
+  }
+
+  remove(category: Category): void {
+    if (!window.confirm(`Delete category "${category.name}"? Its history will be preserved.`)) return;
+
+    this.deletingId.set(category.id);
+    this.error.set('');
+    this.api
+      .deleteCategory(category.id)
+      .pipe(finalize(() => this.deletingId.set(null)))
+      .subscribe({
+        next: () => {
+          this.categories.update((items) => items.filter((item) => item.id !== category.id));
+          if (this.editingId() === category.id) this.cancel();
+        },
+        error: () => this.error.set('Could not delete this category.'),
       });
   }
 }

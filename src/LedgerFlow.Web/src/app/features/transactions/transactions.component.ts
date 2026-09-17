@@ -35,6 +35,8 @@ export class TransactionsComponent {
   readonly showForm = signal(false);
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly deletingId = signal<string | null>(null);
+  readonly editingId = signal<string | null>(null);
   readonly error = signal('');
   readonly form = new FormGroup({
     description: new FormControl('', {
@@ -95,27 +97,47 @@ export class TransactionsComponent {
     this.load();
   }
 
-  create(): void {
+  openCreate(): void {
+    this.editingId.set(null);
+    this.resetForm();
+    this.showForm.set(true);
+  }
+
+  edit(transaction: Transaction): void {
+    this.editingId.set(transaction.id);
+    this.form.reset({
+      description: transaction.description,
+      type: transaction.type,
+      amount: transaction.amount,
+      accountId: transaction.accountId,
+      categoryId: transaction.categoryId,
+      occurredOn: transaction.occurredOn,
+      status: transaction.status,
+      notes: transaction.notes ?? '',
+    });
+    this.showForm.set(true);
+  }
+
+  cancel(): void {
+    this.editingId.set(null);
+    this.showForm.set(false);
+  }
+
+  save(): void {
     if (this.form.invalid) return;
 
     this.saving.set(true);
     this.error.set('');
-    this.api
-      .createTransaction(this.form.getRawValue())
+    const id = this.editingId();
+    const request = id
+      ? this.api.updateTransaction(id, this.form.getRawValue())
+      : this.api.createTransaction(this.form.getRawValue());
+    request
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: () => {
-          this.showForm.set(false);
-          this.form.reset({
-            description: '',
-            type: 2,
-            amount: null,
-            accountId: '',
-            categoryId: '',
-            occurredOn: new Date().toISOString().slice(0, 10),
-            status: 2,
-            notes: '',
-          });
+          this.cancel();
+          this.resetForm();
           this.page = 1;
           this.load();
         },
@@ -124,5 +146,35 @@ export class TransactionsComponent {
             'Could not record this transaction. Check its account, category and values.',
           ),
       });
+  }
+
+  remove(transaction: Transaction): void {
+    if (!window.confirm(`Delete transaction "${transaction.description}"?`)) return;
+
+    this.deletingId.set(transaction.id);
+    this.error.set('');
+    this.api
+      .deleteTransaction(transaction.id)
+      .pipe(finalize(() => this.deletingId.set(null)))
+      .subscribe({
+        next: () => {
+          if (this.editingId() === transaction.id) this.cancel();
+          this.load();
+        },
+        error: () => this.error.set('Could not delete this transaction.'),
+      });
+  }
+
+  private resetForm(): void {
+    this.form.reset({
+      description: '',
+      type: 2,
+      amount: null,
+      accountId: '',
+      categoryId: '',
+      occurredOn: new Date().toISOString().slice(0, 10),
+      status: 2,
+      notes: '',
+    });
   }
 }
